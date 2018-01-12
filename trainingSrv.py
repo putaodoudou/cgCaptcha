@@ -1,6 +1,9 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from os import path
+from urllib import request
 from urllib.parse import urlparse
+import json
+import time
 
 curdir = path.dirname(path.realpath(__file__))
 sep = '/'
@@ -21,11 +24,28 @@ mimedic = [
 
 
 class HTTPServer_RequestHandler(BaseHTTPRequestHandler):
+    global image_buf
+    image_buf = ''
+
     # GET
     def do_GET(self):
         sendReply = False
         querypath = urlparse(self.path)
         filepath, query = querypath.path, querypath.query
+
+        if(querypath.path.startswith('/captcha')):
+            url = 'http://zhengzu.cangoonline.net/cas/imageAuthentication?timeTmp=%d' % time.time()
+            response = request.urlopen(url)
+
+            data = response.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/gif')
+            self.end_headers()
+            print('@@@@ new image fetched...')
+            self.wfile.write(data)
+            global image_buf
+            image_buf = data
+            return
 
         if filepath.endswith('/'):
             filepath += 'index.html'
@@ -46,7 +66,21 @@ class HTTPServer_RequestHandler(BaseHTTPRequestHandler):
                     self.wfile.write(content)
             except IOError:
                 self.send_error(404, 'File Not Found: %s' % self.path)
-
+    # POST
+    def do_POST(self):
+        querypath = urlparse(self.path)
+        if querypath.path == '/submit':
+            length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(length).decode('utf-8')
+            if len(post_data) > 0:
+                req = json.loads(post_data)
+                print(req['lNumber'], req['operator'], req['rNumber'])
+                global image_buf
+                print('@@@@ image ', image_buf)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write('{}'.encode('UTF-8'))
 
 def run():
     port = 8000

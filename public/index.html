@@ -13,7 +13,7 @@
         <div id="app">
             <el-row :gutter="20">
                 <el-col :span="8">
-                    <img width=160 height=43 :src.sync="captchaSrc" />
+                    <img id="cap" width=160 height=43 :src.sync="captchaSrc" />
                 </el-col>
                 <el-col :span="4">
                     <el-input v-model="lNumber" placeholder="请输入第一个数字"></el-input>
