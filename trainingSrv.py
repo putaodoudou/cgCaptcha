@@ -4,6 +4,9 @@ from urllib import request
 from urllib.parse import urlparse
 import json
 import time
+from PIL import Image
+from io import BytesIO
+import imageProcess
 
 curdir = path.dirname(path.realpath(__file__))
 sep = '/'
@@ -25,7 +28,6 @@ mimedic = [
 
 class HTTPServer_RequestHandler(BaseHTTPRequestHandler):
     global image_buf
-    image_buf = ''
 
     # GET
     def do_GET(self):
@@ -44,7 +46,7 @@ class HTTPServer_RequestHandler(BaseHTTPRequestHandler):
             print('@@@@ new image fetched...')
             self.wfile.write(data)
             global image_buf
-            image_buf = data
+            image_buf = BytesIO(data)
             return
 
         if filepath.endswith('/'):
@@ -76,7 +78,9 @@ class HTTPServer_RequestHandler(BaseHTTPRequestHandler):
                 req = json.loads(post_data)
                 print(req['lNumber'], req['operator'], req['rNumber'])
                 global image_buf
-                print('@@@@ image ', image_buf)
+                if(image_buf):
+                    img = Image.open(image_buf)
+                    imageProcess.process(img, req['lNumber'], req['operator'], req['rNumber'])
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
