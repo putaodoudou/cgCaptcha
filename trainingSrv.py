@@ -68,23 +68,53 @@ class HTTPServer_RequestHandler(BaseHTTPRequestHandler):
                     self.wfile.write(content)
             except IOError:
                 self.send_error(404, 'File Not Found: %s' % self.path)
+
+    def handleSubmit(self):
+        length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(length).decode('utf-8')
+        if len(post_data) > 0:
+            req = json.loads(post_data)
+            global image_buf
+            if (image_buf):
+                img = Image.open(image_buf)
+                lm, lv, om, ov, rm, rv = imageProcess.process(img, req['lNumber'], req['operator'], req['rNumber'])
+                response = [{lv: lm}, {ov: om}, {rv: rm}]
+                return response
+
+    def handleQuerySets(self):
+        import persistence
+        collection = persistence.openConnection()
+        keys = persistence.querySets(collection)
+        keys.sort()
+        result = {}
+        for key in keys:
+            result[key] = persistence.querySet(collection, key)
+        return result
+
+    def handlePredict(self):
+        global image_buf
+        if image_buf:
+           img = Image.open(image_buf)
+           v1, v2, v3 = imageProcess.predict(img)
+           print(v1, v2, v3)
+           response = [v1, v2, v3]
+           return response
+
     # POST
     def do_POST(self):
         querypath = urlparse(self.path)
+        response = []
         if querypath.path == '/submit':
-            length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(length).decode('utf-8')
-            if len(post_data) > 0:
-                req = json.loads(post_data)
-                print(req['lNumber'], req['operator'], req['rNumber'])
-                global image_buf
-                if(image_buf):
-                    img = Image.open(image_buf)
-                    imageProcess.process(img, req['lNumber'], req['operator'], req['rNumber'])
+            response = self.handleSubmit()
+        if querypath.path == '/query':
+            response = self.handleQuerySets()
+        if querypath.path == '/predict':
+            response = self.handlePredict()
+
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write('{}'.encode('UTF-8'))
+        self.wfile.write(json.dumps(response).encode('UTF-8'))
 
 def run():
     port = 8000
